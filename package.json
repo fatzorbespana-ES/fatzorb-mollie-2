@@ -1,0 +1,8 @@
+{
+  "name": "fatzorb-mollie",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@mollie/api-client": "^2.0.0"
+  }
+}
