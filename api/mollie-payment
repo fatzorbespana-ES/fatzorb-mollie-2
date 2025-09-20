@@ -2,32 +2,27 @@ import mollieClient from '@mollie/api-client';
 import querystring from 'querystring';
 
 export default async function handler(req, res) {
-  // CORS (por si alguien usa fetch)
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return res.status(200).end();
+  }
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).send('Método no permitido');
 
   try {
-    let amount, description;
+    // Leer los datos del formulario
+    const body = await new Promise((resolve) => {
+      let data = '';
+      req.on('data', chunk => data += chunk);
+      req.on('end', () => resolve(data));
+    });
 
-    if (req.headers['content-type'] === 'application/json') {
-      // Datos desde fetch (JSON)
-      ({ amount, description } = req.body);
-    } else {
-      // Datos desde formulario HTML
-      const bodyStr = await new Promise((resolve) => {
-        let data = '';
-        req.on('data', chunk => data += chunk);
-        req.on('end', () => resolve(data));
-      });
-      const parsed = querystring.parse(bodyStr);
-      const quantity = parsed.quantity || '1';
-      amount = (45 * parseInt(quantity)).toFixed(2);
-      description = `${quantity} cajas de Fatzorb`;
-    }
+    const parsed = querystring.parse(body);
+    const quantity = parsed.quantity || '1';
+    const amount = (45 * parseInt(quantity)).toFixed(2);
+    const description = `${quantity} cajas de Fatzorb`;
 
     const client = mollieClient({ apiKey: process.env.MOLLIE_API_KEY });
     const payment = await client.payments.create({
@@ -37,10 +32,10 @@ export default async function handler(req, res) {
       webhookUrl: 'https://www.fatzorb.es/api/mollie-webhook'
     });
 
-    // Redirige directamente al checkout de Mollie
+    // Redirigir directamente al checkout
     res.writeHead(302, { Location: payment.getCheckoutUrl() });
     res.end();
-    
+
   } catch (error) {
     console.error(error);
     res.status(500).send('Error al crear el pago');
