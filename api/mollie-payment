@@ -12,7 +12,6 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Método no permitido');
 
   try {
-    // Leer los datos del formulario
     const body = await new Promise((resolve) => {
       let data = '';
       req.on('data', chunk => data += chunk);
@@ -32,7 +31,6 @@ export default async function handler(req, res) {
       webhookUrl: 'https://www.fatzorb.es/api/mollie-webhook'
     });
 
-    // Redirigir directamente al checkout
     res.writeHead(302, { Location: payment.getCheckoutUrl() });
     res.end();
 
