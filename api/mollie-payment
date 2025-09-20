@@ -1,16 +1,28 @@
 import mollieClient from '@mollie/api-client';
 
 export default async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Permite cualquier dominio
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Responder a preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+
   try {
     const { amount, description } = req.body;
     const client = mollieClient({ apiKey: process.env.MOLLIE_API_KEY });
     const payment = await client.payments.create({
       amount: { currency: 'EUR', value: amount },
       description,
-      redirectUrl: 'https://tusitio.com/gracias',
-      webhookUrl: 'https://tusitio.com/api/mollie-webhook'
+      redirectUrl: 'https://www.fatzorb.es/gracias',
+      webhookUrl: 'https://www.fatzorb.es/api/mollie-webhook'
     });
+
     res.status(200).json({ checkoutUrl: payment.getCheckoutUrl() });
   } catch (error) {
     console.error(error);
