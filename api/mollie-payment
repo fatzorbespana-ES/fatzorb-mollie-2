@@ -1,20 +1,34 @@
 import mollieClient from '@mollie/api-client';
+import querystring from 'querystring';
 
 export default async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*'); // Permite cualquier dominio
+  // CORS (por si alguien usa fetch)
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Responder a preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).send('Método no permitido');
 
   try {
-    const { amount, description } = req.body;
+    let amount, description;
+
+    if (req.headers['content-type'] === 'application/json') {
+      // Datos desde fetch (JSON)
+      ({ amount, description } = req.body);
+    } else {
+      // Datos desde formulario HTML
+      const bodyStr = await new Promise((resolve) => {
+        let data = '';
+        req.on('data', chunk => data += chunk);
+        req.on('end', () => resolve(data));
+      });
+      const parsed = querystring.parse(bodyStr);
+      const quantity = parsed.quantity || '1';
+      amount = (45 * parseInt(quantity)).toFixed(2);
+      description = `${quantity} cajas de Fatzorb`;
+    }
+
     const client = mollieClient({ apiKey: process.env.MOLLIE_API_KEY });
     const payment = await client.payments.create({
       amount: { currency: 'EUR', value: amount },
@@ -23,9 +37,12 @@ export default async function handler(req, res) {
       webhookUrl: 'https://www.fatzorb.es/api/mollie-webhook'
     });
 
-    res.status(200).json({ checkoutUrl: payment.getCheckoutUrl() });
+    // Redirige directamente al checkout de Mollie
+    res.writeHead(302, { Location: payment.getCheckoutUrl() });
+    res.end();
+    
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al crear el pago' });
+    res.status(500).send('Error al crear el pago');
   }
 }
